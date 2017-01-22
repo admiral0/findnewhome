@@ -1,0 +1,43 @@
+from configparser import ConfigParser
+from datetime import datetime, timedelta
+
+import googlemaps
+from pony.orm import commit, db_session
+
+ARRIVAL = datetime(2017, 3, 1, 10, 0)
+
+class GoogleDistance(object):
+    def __init__(self):
+        config = ConfigParser()
+        config.read('settings.ini')
+        api_key = config.get('google', 'apikey')
+        self.client = googlemaps.Client(key=api_key)
+
+    @db_session
+    def commute_work_bicycle(self, prop):
+        directions = self.client.directions(
+            (prop.position_latitude, prop.position_longitude),
+            'One Burlington Plaza, Dublin, Ireland',
+            mode='bicycling',
+            arrival_time=ARRIVAL)
+        # Funky stuff - ensure that we are not across the ocean.
+        assert len(directions) == 1
+        assert len(directions[0]['legs']) == 1
+        prop.distance_bicycle = float(directions[0]['legs'][0]['distance']['value']/1000)
+        prop.by_bicycle = timedelta(seconds=directions[0]['legs'][0]['duration']['value'])
+        commit()
+
+    def commute_work_transit(self, prop):
+        directions = self.client.directions(
+            (prop.position_latitude, prop.position_longitude),
+            'One Burlington Plaza, Dublin, Ireland',
+            mode='transit',
+            arrival_time=ARRIVAL)
+        assert len(directions) == 1
+        assert len(directions[0]['legs']) == 1
+        prop.distance_transit = float(directions[0]['legs'][0]['distance']['value']/1000)
+        prop.by_transit = timedelta(seconds=directions[0]['legs'][0]['duration']['value'])
+        prop.by_transit_start = datetime.fromtimestamp(directions[0]['legs'][0]['departure_time']['value'])
+        # Bus = BUS
+        # DART = HEAVY_RAIL
+        # Luas = TRAM

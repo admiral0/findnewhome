@@ -13,7 +13,6 @@ class GoogleDistance(object):
         api_key = config.get('google', 'apikey')
         self.client = googlemaps.Client(key=api_key)
 
-    @db_session
     def commute_work_bicycle(self, prop):
         directions = self.client.directions(
             (prop.position_latitude, prop.position_longitude),
@@ -37,7 +36,9 @@ class GoogleDistance(object):
         assert len(directions[0]['legs']) == 1
         prop.distance_transit = float(directions[0]['legs'][0]['distance']['value']/1000)
         prop.by_transit = timedelta(seconds=directions[0]['legs'][0]['duration']['value'])
-        prop.by_transit_start = datetime.fromtimestamp(directions[0]['legs'][0]['departure_time']['value'])
+        if 'departure_time' in directions[0]['legs'][0]:
+            prop.by_transit_start = datetime.fromtimestamp(directions[0]['legs'][0]['departure_time']['value'])
         # Bus = BUS
         # DART = HEAVY_RAIL
         # Luas = TRAM
+        
